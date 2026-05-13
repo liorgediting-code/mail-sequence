@@ -22,6 +22,10 @@ export const env = {
   GAS_EMAIL_WEBHOOK: () => req("GAS_EMAIL_WEBHOOK"),
   GAS_EMAIL_SECRET:  () => req("GAS_EMAIL_SECRET"),
   FROM_NAME:         () => opt("FROM_NAME", "Liav"),
+  // Optional: send "as" this address (must be a verified alias of the
+  // authenticated Gmail account behind GAS). Empty = send from the
+  // GAS-authenticated account's primary address.
+  FROM_EMAIL:        () => opt("FROM_EMAIL", ""),
   GMAIL_DAILY_QUOTA: () => Number(opt("GMAIL_DAILY_QUOTA", "90")),
 
   // Admin

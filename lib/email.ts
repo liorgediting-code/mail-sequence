@@ -19,8 +19,9 @@ export async function sendViaGas(params: {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        secret:   env.GAS_EMAIL_SECRET(),
-        fromName: env.FROM_NAME(),
+        secret:    env.GAS_EMAIL_SECRET(),
+        fromName:  env.FROM_NAME(),
+        fromEmail: env.FROM_EMAIL() || undefined,
         ...params,
       }),
       // Apps Script can be slow on cold start.

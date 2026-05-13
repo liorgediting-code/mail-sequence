@@ -36,10 +36,29 @@ function doPost(e) {
     return _json({ ok: false, error: 'quota_exhausted', quotaRemaining: 0 }, 429);
   }
 
+  // If a `from` alias is supplied, ensure it's actually a verified alias of
+  // the authenticated Gmail account. Send from the primary address otherwise
+  // (so a typo / unverified alias doesn't silently swap senders).
+  let fromAlias;
+  if (body.fromEmail) {
+    const aliases = GmailApp.getAliases();
+    if (aliases.indexOf(body.fromEmail) !== -1) {
+      fromAlias = body.fromEmail;
+    } else {
+      return _json({
+        ok: false,
+        error: 'from_not_alias',
+        hint: 'Add the address under Gmail → Settings → Accounts → "Send mail as" first.',
+        knownAliases: aliases,
+      }, 400);
+    }
+  }
+
   try {
     GmailApp.sendEmail(body.to, body.subject, body.textBody || '', {
       htmlBody: body.htmlBody || undefined,
       name:     body.fromName || 'Liav',
+      from:     fromAlias,
       replyTo:  body.replyTo  || undefined,
     });
   } catch (err) {
