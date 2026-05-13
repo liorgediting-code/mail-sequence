@@ -1,12 +1,13 @@
-// Email sequence definition.
+// Email-template helpers + DB loader.
 //
-// `day_offset` is measured from the lead's signed_up_at. The cron picks the
-// earliest unsent step whose target time (signed_up_at + day_offset days) is
-// in the past for each active lead, and sends it.
-//
-// Body is plain Hebrew text. We render it to HTML at send time by wrapping it
-// in an RTL document and converting double-newlines to paragraphs. The
-// {{UNSUB_URL}} placeholder is replaced per-lead.
+// The sequence used to live as a hardcoded array here; it now lives in the
+// `email_templates` Supabase table and is editable from the admin UI. The
+// hardcoded copy below is kept as a *fallback only* — used when the table
+// doesn't exist yet (i.e. migration 0002 hasn't been applied). Once the
+// table exists, the engine always uses the DB (even when empty: empty table
+// = no scheduled emails, which is intentional).
+
+import { supa } from "./supabase";
 
 export type Template = {
   slug: string;          // stable id, used as the email_log unique key
@@ -15,7 +16,7 @@ export type Template = {
   body: string;          // Hebrew, plain text with paragraph breaks
 };
 
-export const SEQUENCE: Template[] = [
+const FALLBACK_SEQUENCE: Template[] = [
   {
     slug: "welcome",
     day_offset: 0,
@@ -38,6 +39,29 @@ export const SEQUENCE: Template[] = [
 ליאב.`,
   },
 ];
+
+/**
+ * Load the active email sequence from the DB, sorted by day_offset.
+ * Falls back to FALLBACK_SEQUENCE if the email_templates table doesn't exist
+ * yet (so cron keeps working pre-migration).
+ */
+export async function loadSequence(): Promise<Template[]> {
+  const { data, error } = await supa()
+    .from("email_templates")
+    .select("slug, day_offset, subject, body, enabled")
+    .eq("enabled", true)
+    .order("day_offset", { ascending: true });
+
+  if (error) {
+    // PGRST205 = table not in schema cache (table does not exist).
+    const msg = `${error.code || ""} ${error.message || ""}`;
+    if (msg.includes("PGRST205") || msg.includes("does not exist")) {
+      return FALLBACK_SEQUENCE;
+    }
+    throw new Error(`templates_query: ${error.message}`);
+  }
+  return data ?? [];
+}
 
 // Wrap body text in an RTL HTML document. Adds an unsub footer.
 export function renderHtml(body: string, unsubUrl: string): string {
@@ -75,4 +99,17 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]!));
+}
+
+/** Slugify a subject line into a stable identifier. ASCII-only; Hebrew is
+ *  transliterated by stripping non-ASCII and falling back to a uuid suffix. */
+export function suggestSlug(subject: string): string {
+  const ascii = subject
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 40);
+  if (ascii.length >= 3) return ascii;
+  // Subject was Hebrew-only — generate a short random slug.
+  return `email-${Math.random().toString(36).slice(2, 8)}`;
 }

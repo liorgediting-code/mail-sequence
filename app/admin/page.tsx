@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { AdminNav } from "./_components/AdminNav";
 
 type LogRow = { template_slug: string; status: string; sent_at: string };
 type Lead = {
@@ -31,11 +32,6 @@ export default function AdminPage() {
     load();
   }
 
-  async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    window.location.href = "/admin/login";
-  }
-
   if (err) return <pre className="p-6 text-red-600">{err}</pre>;
   if (!leads) return <p className="p-6">טוען...</p>;
 
@@ -50,11 +46,9 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">לידים — {leads.length}</h1>
-        <button onClick={logout} className="text-sm text-gray-600 underline">יציאה</button>
-      </header>
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <AdminNav />
+      <h1 className="text-2xl font-bold mb-4">לידים — {leads.length}</h1>
 
       <div className="flex gap-2 mb-4 flex-wrap">
         {(["all","active","paused","unsubscribed","bounced"] as const).map((s) => (

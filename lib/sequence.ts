@@ -6,7 +6,7 @@
 // budget.
 
 import { supa, type Lead } from "./supabase";
-import { SEQUENCE, renderHtml, renderText } from "./templates";
+import { loadSequence, renderHtml, renderText } from "./templates";
 import { sendViaGas } from "./email";
 import { unsubUrl } from "./unsubscribe";
 import { env } from "./env";
@@ -17,6 +17,9 @@ export async function runSequence(opts: { dryRun?: boolean; now?: Date } = {}): 
   const now = opts.now ?? new Date();
   const budget = env.GMAIL_DAILY_QUOTA();
   const stat: Stat = { sent: 0, failed: 0, skipped: 0, quotaRemaining: null };
+
+  const SEQUENCE = await loadSequence();
+  if (SEQUENCE.length === 0) return stat;
 
   const { data: leads, error } = await supa()
     .from("leads")
