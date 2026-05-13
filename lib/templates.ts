@@ -63,7 +63,10 @@ export async function loadSequence(): Promise<Template[]> {
   return data ?? [];
 }
 
-// Wrap body text in an RTL HTML document. Adds an unsub footer.
+// Wrap body text in an RTL HTML document. Adds a clear unsub footer.
+// The footer renders the unsubscribe link prominently in a centered block
+// below the body so it's visible in Gmail's preview and matches what Gmail
+// expects for clean delivery (helps avoid spam classification).
 export function renderHtml(body: string, unsubUrl: string): string {
   const paragraphs = body
     .split(/\n{2,}/)
@@ -79,9 +82,14 @@ export function renderHtml(body: string, unsubUrl: string): string {
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:8px;">
           <tr><td style="padding:32px;font-family:'Heebo',Arial,sans-serif;font-size:16px;line-height:1.7;color:#1a1f3a;direction:rtl;text-align:right;">
             ${paragraphs}
-            <hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0 16px 0;"/>
-            <p style="font-size:12px;color:#888;margin:0;">
-              <a href="${unsubUrl}" style="color:#888;text-decoration:underline;">ביטול רישום / הסר</a>
+          </td></tr>
+          <tr><td style="padding:0 32px 24px 32px;">
+            <hr style="border:none;border-top:1px solid #e5e5e5;margin:0 0 16px 0;"/>
+            <p style="font-family:'Heebo',Arial,sans-serif;font-size:13px;color:#888;margin:0;text-align:center;direction:rtl;">
+              לא רוצה לקבל יותר מיילים?
+              <a href="${unsubUrl}" style="color:#1a1f3a;text-decoration:underline;font-weight:600;margin-right:4px;">
+                ביטול רישום
+              </a>
             </p>
           </td></tr>
         </table>
@@ -92,7 +100,7 @@ export function renderHtml(body: string, unsubUrl: string): string {
 }
 
 export function renderText(body: string, unsubUrl: string): string {
-  return `${body}\n\n---\nביטול רישום: ${unsubUrl}\n`;
+  return `${body}\n\n———\nלא רוצה לקבל יותר מיילים? ביטול רישום: ${unsubUrl}\n`;
 }
 
 function escapeHtml(s: string): string {
