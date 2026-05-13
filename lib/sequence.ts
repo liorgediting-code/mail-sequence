@@ -29,9 +29,13 @@ export async function runSequence(opts: { dryRun?: boolean; now?: Date } = {}): 
 
   // Pull all sent slugs in one query for efficiency.
   const leadIds = leads.map((l) => l.id);
+  // Only `sent` is terminal. `failed` rows are retryable on the next run; the
+  // upsert below uses (lead_id, template_slug) as the conflict key so a retry
+  // overwrites the prior failure record rather than throwing a unique violation.
   const { data: logs, error: logsErr } = await supa()
     .from("email_log")
     .select("lead_id, template_slug")
+    .eq("status", "sent")
     .in("lead_id", leadIds);
   if (logsErr) throw new Error(`logs_query: ${logsErr.message}`);
 
@@ -69,28 +73,27 @@ export async function runSequence(opts: { dryRun?: boolean; now?: Date } = {}): 
       textBody: text,
     });
 
+    const base = {
+      lead_id: lead.id,
+      template_slug: due.slug,
+      day_offset: due.day_offset,
+      subject: due.subject,
+    };
+
     if (res.ok) {
       stat.sent++;
       stat.quotaRemaining = res.quotaRemaining;
-      await supa().from("email_log").insert({
-        lead_id: lead.id,
-        template_slug: due.slug,
-        day_offset: due.day_offset,
-        subject: due.subject,
-        status: "sent",
-        gas_message_id: res.messageId,
-      });
+      await supa().from("email_log").upsert(
+        { ...base, status: "sent", gas_message_id: res.messageId, error: null, sent_at: new Date().toISOString() },
+        { onConflict: "lead_id,template_slug" },
+      );
     } else {
       stat.failed++;
       if (res.quotaRemaining !== undefined) stat.quotaRemaining = res.quotaRemaining;
-      await supa().from("email_log").insert({
-        lead_id: lead.id,
-        template_slug: due.slug,
-        day_offset: due.day_offset,
-        subject: due.subject,
-        status: "failed",
-        error: res.error,
-      });
+      await supa().from("email_log").upsert(
+        { ...base, status: "failed", error: res.error, sent_at: new Date().toISOString() },
+        { onConflict: "lead_id,template_slug" },
+      );
       // If GAS reports quota exhausted, stop the whole run.
       if (res.error === "quota_exhausted") break;
     }
