@@ -11,12 +11,25 @@ import { sendViaGas } from "./email";
 import { unsubUrl } from "./unsubscribe";
 import { env } from "./env";
 
-type Stat = { sent: number; failed: number; skipped: number; quotaRemaining: number | null };
+type Stat = {
+  sent: number; failed: number; skipped: number;
+  quotaRemaining: number | null;
+  /** When sending is disarmed at the env level, the engine returns immediately
+   *  without touching leads or templates. Surfaced so the cron response and
+   *  the admin UI can show "system is paused" instead of pretending all is well. */
+  disarmed?: boolean;
+};
 
 export async function runSequence(opts: { dryRun?: boolean; now?: Date } = {}): Promise<Stat> {
   const now = opts.now ?? new Date();
   const budget = env.GMAIL_DAILY_QUOTA();
   const stat: Stat = { sent: 0, failed: 0, skipped: 0, quotaRemaining: null };
+
+  // HARD ARM CHECK — independent of per-template/per-lead flags. This is the
+  // last line of defense and must be the FIRST thing checked.
+  if (!env.SENDING_ENABLED()) {
+    return { ...stat, disarmed: true };
+  }
 
   const SEQUENCE = await loadSequence();
   if (SEQUENCE.length === 0) return stat;

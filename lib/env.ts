@@ -36,6 +36,13 @@ export const env = {
   CRON_SECRET:   () => req("CRON_SECRET"),
   INGEST_SECRET: () => req("INGEST_SECRET"),
 
+  // Master arm switch. Set to "true" only when you want the cron to actually
+  // send mail. Any other value (default empty) → cron runs but sends nothing.
+  // This is a hard guarantee independent of per-template `enabled` flags and
+  // per-lead status — useful when testing, during incident response, or when
+  // you simply haven't gone live yet.
+  SENDING_ENABLED: () => opt("SENDING_ENABLED", "").toLowerCase() === "true",
+
   // Public origin
   PUBLIC_URL: () => opt("PUBLIC_URL", "").replace(/\/$/, ""),
 };
